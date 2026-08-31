@@ -4,19 +4,14 @@
 #include <iostream>
 
 
-// ============================================================
 // Конструктор
-// ============================================================
-
 ClientDatabase::ClientDatabase(pqxx::connection& conn)
     : connection(conn)
 {
 }
 
 
-// ============================================================
 // 1. Создание таблиц
-// ============================================================
 
 void ClientDatabase::createTables()
 {
@@ -31,6 +26,7 @@ void ClientDatabase::createTables()
             email VARCHAR(255) NOT NULL UNIQUE
         );
     )");
+
 
     // Таблица телефонов
     transaction.exec(R"(
@@ -48,14 +44,11 @@ void ClientDatabase::createTables()
 
     transaction.commit();
 
-    std::cout << "Таблицы успешно созданы!"
-        << std::endl;
+    std::cout << "Таблицы успешно созданы!" << std::endl;
 }
 
 
-// ============================================================
-// 2. Добавление клиента
-// ============================================================
+// 2. Добавление нового клиента
 
 int ClientDatabase::addClient(
     const std::string& firstName,
@@ -90,9 +83,7 @@ int ClientDatabase::addClient(
 }
 
 
-// ============================================================
 // 3. Добавление телефона существующему клиенту
-// ============================================================
 
 void ClientDatabase::addPhone(
     int clientId,
@@ -100,7 +91,8 @@ void ClientDatabase::addPhone(
 {
     pqxx::work transaction(connection);
 
-    // Проверяем, существует ли клиент
+
+    // Проверяем существование клиента
     pqxx::params checkParams;
     checkParams.append(clientId);
 
@@ -108,6 +100,7 @@ void ClientDatabase::addPhone(
         "SELECT id FROM clients WHERE id = $1;",
         checkParams
     );
+
 
     if (result.empty())
     {
@@ -117,8 +110,10 @@ void ClientDatabase::addPhone(
             << std::endl;
 
         transaction.abort();
+
         return;
     }
+
 
     // Добавляем телефон
     pqxx::params phoneParams;
@@ -133,6 +128,7 @@ void ClientDatabase::addPhone(
         phoneParams
     );
 
+
     transaction.commit();
 
     std::cout << "Телефон добавлен!"
@@ -140,9 +136,7 @@ void ClientDatabase::addPhone(
 }
 
 
-// ============================================================
 // 4. Изменение данных клиента
-// ============================================================
 
 void ClientDatabase::updateClient(
     int clientId,
@@ -153,10 +147,12 @@ void ClientDatabase::updateClient(
     pqxx::work transaction(connection);
 
     pqxx::params params;
+
     params.append(firstName);
     params.append(lastName);
     params.append(email);
     params.append(clientId);
+
 
     pqxx::result result = transaction.exec(
         R"(
@@ -170,6 +166,7 @@ void ClientDatabase::updateClient(
         params
     );
 
+
     if (result.affected_rows() == 0)
     {
         std::cout << "Клиент с ID "
@@ -178,8 +175,10 @@ void ClientDatabase::updateClient(
             << std::endl;
 
         transaction.abort();
+
         return;
     }
+
 
     transaction.commit();
 
@@ -188,9 +187,7 @@ void ClientDatabase::updateClient(
 }
 
 
-// ============================================================
 // 5. Удаление телефона
-// ============================================================
 
 void ClientDatabase::deletePhone(int phoneId)
 {
@@ -199,10 +196,12 @@ void ClientDatabase::deletePhone(int phoneId)
     pqxx::params params;
     params.append(phoneId);
 
+
     pqxx::result result = transaction.exec(
         "DELETE FROM phones WHERE id = $1;",
         params
     );
+
 
     if (result.affected_rows() == 0)
     {
@@ -212,8 +211,10 @@ void ClientDatabase::deletePhone(int phoneId)
             << std::endl;
 
         transaction.abort();
+
         return;
     }
+
 
     transaction.commit();
 
@@ -222,9 +223,7 @@ void ClientDatabase::deletePhone(int phoneId)
 }
 
 
-// ============================================================
 // 6. Удаление клиента
-// ============================================================
 
 void ClientDatabase::deleteClient(int clientId)
 {
@@ -233,10 +232,12 @@ void ClientDatabase::deleteClient(int clientId)
     pqxx::params params;
     params.append(clientId);
 
+
     pqxx::result result = transaction.exec(
         "DELETE FROM clients WHERE id = $1;",
         params
     );
+
 
     if (result.affected_rows() == 0)
     {
@@ -246,8 +247,10 @@ void ClientDatabase::deleteClient(int clientId)
             << std::endl;
 
         transaction.abort();
+
         return;
     }
+
 
     transaction.commit();
 
@@ -259,17 +262,17 @@ void ClientDatabase::deleteClient(int clientId)
 }
 
 
-// ============================================================
 // 7. Поиск клиента
-// ============================================================
 
-void ClientDatabase::findClient(
+std::vector<Client> ClientDatabase::findClient(
     const std::string& searchValue)
 {
     pqxx::work transaction(connection);
 
+
     pqxx::params params;
     params.append(searchValue);
+
 
     pqxx::result result = transaction.exec(
         R"(
@@ -278,7 +281,6 @@ void ClientDatabase::findClient(
                 c.first_name,
                 c.last_name,
                 c.email,
-                p.id AS phone_id,
                 p.phone
             FROM clients c
             LEFT JOIN phones p
@@ -293,72 +295,64 @@ void ClientDatabase::findClient(
         params
     );
 
-    if (result.empty())
-    {
-        std::cout << "Клиенты не найдены!"
-            << std::endl;
 
-        transaction.commit();
-        return;
-    }
-
-    std::cout << "\n===== Результат поиска ====="
-        << std::endl;
+    std::vector<Client> clients;
 
     int previousClientId = -1;
+
 
     for (const auto& row : result)
     {
         int clientId = row["id"].as<int>();
 
-        // Выводим данные клиента один раз
+
+        // Если встретили нового клиента
         if (clientId != previousClientId)
         {
-            std::cout << "\nID: "
-                << clientId
-                << std::endl;
+            Client client;
 
-            std::cout << "Имя: "
-                << row["first_name"].c_str()
-                << std::endl;
+            client.id = clientId;
 
-            std::cout << "Фамилия: "
-                << row["last_name"].c_str()
-                << std::endl;
+            client.firstName =
+                row["first_name"].c_str();
 
-            std::cout << "Email: "
-                << row["email"].c_str()
-                << std::endl;
+            client.lastName =
+                row["last_name"].c_str();
 
-            std::cout << "Телефоны: ";
+            client.email =
+                row["email"].c_str();
+
+
+            clients.push_back(client);
 
             previousClientId = clientId;
         }
 
-        // Если телефон существует
+
+        // Добавляем телефон клиенту
         if (!row["phone"].is_null())
         {
-            std::cout << row["phone"].c_str()
-                << " ";
+            clients.back().phones.push_back(
+                row["phone"].c_str()
+            );
         }
     }
 
-    std::cout << "\n";
 
     transaction.commit();
+
+    // Возвращаем найденных клиентов
+    return clients;
 }
 
 
-// ============================================================
-// Дополнительный метод.
-// Вывод всех клиентов
-// ============================================================
+// Дополнительный метод
+// Получение всех клиентов
 
-void ClientDatabase::showAllClients()
+std::vector<Client> ClientDatabase::getAllClients()
 {
-    setlocale(LC_ALL, "Russian");
-
     pqxx::work transaction(connection);
+
 
     pqxx::result result = transaction.exec(R"(
         SELECT
@@ -373,56 +367,52 @@ void ClientDatabase::showAllClients()
         ORDER BY c.id;
     )");
 
-    if (result.empty())
-    {
-        std::cout << "Клиентов нет!"
-            << std::endl;
 
-        transaction.commit();
-        return;
-    }
-
-    std::cout << "\n===== ВСЕ КЛИЕНТЫ ====="
-        << std::endl;
+    std::vector<Client> clients;
 
     int previousClientId = -1;
+
 
     for (const auto& row : result)
     {
         int clientId = row["id"].as<int>();
 
+
+        // Если новый клиент
         if (clientId != previousClientId)
         {
-            std::cout << "\nID: "
-                << clientId
-                << std::endl;
+            Client client;
 
-            std::cout << "Имя: "
-                << row["first_name"].c_str()
-                << std::endl;
+            client.id = clientId;
 
-            std::cout << "Фамилия: "
-                << row["last_name"].c_str()
-                << std::endl;
+            client.firstName =
+                row["first_name"].c_str();
 
-            std::cout << "Email: "
-                << row["email"].c_str()
-                << std::endl;
+            client.lastName =
+                row["last_name"].c_str();
 
-            std::cout << "Телефоны: ";
+            client.email =
+                row["email"].c_str();
+
+
+            clients.push_back(client);
 
             previousClientId = clientId;
         }
 
+
+        // Добавляем телефон
         if (!row["phone"].is_null())
         {
-            std::cout << row["phone"].c_str()
-                << " ";
+            clients.back().phones.push_back(
+                row["phone"].c_str()
+            );
         }
     }
 
-    std::cout << "\n";
 
     transaction.commit();
+
+    return clients;
 }
 

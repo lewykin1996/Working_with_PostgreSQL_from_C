@@ -1,14 +1,14 @@
-﻿#pragma once
-
-#include <string>
+﻿
 #include <iostream>
-#include <locale>
+#include <string>
 
 #include <pqxx/pqxx>
 
 #include "ClientData.h"
 
+
 #pragma comment(lib, "ws2_32.lib")
+
 
 int main()
 {
@@ -17,7 +17,6 @@ int main()
     try
     {
         // Подключение к PostgreSQL
-
         pqxx::connection connection(
             "host=localhost "
             "port=5432 "
@@ -26,134 +25,223 @@ int main()
             "password=timoha2211"
         );
 
+
         std::cout << "Подключение успешно!"
             << std::endl;
 
-        // Создаём объект класса ClientDatabase
 
-        ClientDatabase db(connection);
+        // Создаём объект для работы с клиентами
+        ClientDatabase database(connection);
+
 
         // 1. Создание таблиц
 
-        db.createTables();
+        database.createTables();
+
 
         // 2. Добавление клиентов
 
-        int client1 = db.addClient(
+        int client1 = database.addClient(
             "Иван",
             "Иванов",
             "ivan@example.com"
         );
 
-        int client2 = db.addClient(
+
+        int client2 = database.addClient(
             "Пётр",
             "Петров",
             "petr@example.com"
         );
 
-        int client3 = db.addClient(
+
+        int client3 = database.addClient(
             "Анна",
-            "Смирнова",
+            "Сидорова",
             "anna@example.com"
         );
 
+
         // 3. Добавление телефонов
 
-        // У Ивана два телефона
-        db.addPhone(
+        database.addPhone(
             client1,
-            "+7-900-111-11-11"
+            "+79991234567"
         );
 
-        db.addPhone(
+
+        database.addPhone(
             client1,
-            "+7-900-222-22-22"
+            "+79997654321"
         );
 
-        // У Петра один телефон
-        db.addPhone(
+
+        database.addPhone(
             client2,
-            "+7-900-333-33-33"
+            "+79995555555"
         );
 
-        // У Анны телефона нет.
-        // Это разрешено условием задания.
-       
-        // Показываем всех клиентов
 
-        db.showAllClients();
+        // У третьего клиента телефонов нет
+
+
+        // Вывод всех клиентов
+
+        std::cout
+            << "\n===== ВСЕ КЛИЕНТЫ ====="
+            << std::endl;
+
+
+        std::vector<Client> allClients =
+            database.getAllClients();
+
+
+        for (const auto& client : allClients)
+        {
+            std::cout
+                << "\nID: "
+                << client.id
+                << std::endl;
+
+            std::cout
+                << "Имя: "
+                << client.firstName
+                << std::endl;
+
+            std::cout
+                << "Фамилия: "
+                << client.lastName
+                << std::endl;
+
+            std::cout
+                << "Email: "
+                << client.email
+                << std::endl;
+
+            std::cout << "Телефоны: ";
+
+
+            if (client.phones.empty())
+            {
+                std::cout << "нет";
+            }
+            else
+            {
+                for (const auto& phone : client.phones)
+                {
+                    std::cout
+                        << phone
+                        << " ";
+                }
+            }
+
+            std::cout << std::endl;
+        }
+
 
         // 4. Изменение данных клиента
 
-        db.updateClient(
-            client1,
-            "Иван",
-            "Иванов",
-            "ivanov@example.com"
+        std::cout
+            << "\n===== ИЗМЕНЕНИЕ КЛИЕНТА ====="
+            << std::endl;
+
+
+        database.updateClient(
+            client2,
+            "Пётр",
+            "Петров",
+            "new_petr@example.com"
         );
+
 
         // 7. Поиск клиента
 
-        std::cout << "\nПоиск по имени:"
+        std::cout
+            << "\n===== ПОИСК КЛИЕНТА ====="
             << std::endl;
 
-        db.findClient("Иван");
 
-        std::cout << "\nПоиск по фамилии:"
-            << std::endl;
+        std::vector<Client> foundClients =
+            database.findClient("Иван");
 
-        db.findClient("Петров");
 
-        std::cout << "\nПоиск по email:"
-            << std::endl;
+        if (foundClients.empty())
+        {
+            std::cout
+                << "Клиенты не найдены!"
+                << std::endl;
+        }
+        else
+        {
+            for (const auto& client : foundClients)
+            {
+                std::cout
+                    << "\nID: "
+                    << client.id
+                    << std::endl;
 
-        db.findClient("anna@example.com");
+                std::cout
+                    << "Имя: "
+                    << client.firstName
+                    << std::endl;
 
-        std::cout << "\nПоиск по телефону:"
-            << std::endl;
+                std::cout
+                    << "Фамилия: "
+                    << client.lastName
+                    << std::endl;
 
-        db.findClient("333-33-33");
+                std::cout
+                    << "Email: "
+                    << client.email
+                    << std::endl;
+
+                std::cout << "Телефоны: ";
+
+
+                if (client.phones.empty())
+                {
+                    std::cout << "нет";
+                }
+                else
+                {
+                    for (const auto& phone : client.phones)
+                    {
+                        std::cout
+                            << phone
+                            << " ";
+                    }
+                }
+
+                std::cout << std::endl;
+            }
+        }
+
 
         // 5. Удаление телефона
 
-        // В нашей демонстрации телефон с ID = 1
-        // принадлежит Ивану.
+        // Для демонстрации сначала можно посмотреть
+        // ID телефонов в базе данных.
 
-        db.deletePhone(1);
 
         // 6. Удаление клиента
 
-        // Удаляем Петра.
-        // Его телефон также удалится автоматически,
-        // благодаря ON DELETE CASCADE.
-
-        db.deleteClient(client2);
-
-        // Финальный вывод
+        // database.deleteClient(client3);
 
 
-        db.showAllClients();
-    }
-    catch (const pqxx::sql_error& e)
-    {
-        std::cerr << "\nОшибка SQL: "
-            << e.what()
-            << std::endl;
-
-        std::cerr << "SQL-запрос: "
-            << e.query()
+        std::cout
+            << "\n===== ПРОГРАММА ЗАВЕРШЕНА ====="
             << std::endl;
     }
+
+
     catch (const std::exception& e)
     {
-        std::cerr << "\nОшибка: "
+        std::cerr
+            << "Ошибка: "
             << e.what()
             << std::endl;
     }
+
 
     return 0;
 }
-
-
-
-
